@@ -2,7 +2,7 @@ use std::env::var;
 use actix_web::HttpResponse;
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use keycloak::types::{
-    ClientRepresentation, ClientScopeRepresentation, RealmRepresentation, RoleRepresentation,
+    RealmRepresentation,
 };
 use keycloak::{KeycloakAdmin, KeycloakAdminToken};
 use log::info;

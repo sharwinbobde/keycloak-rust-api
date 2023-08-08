@@ -9,9 +9,9 @@ use actix_web::{
     App, HttpServer,
 };
 
-use crate::handlers::admin::seed;
-use crate::handlers::clients::{get_clients, post_client};
-use crate::handlers::users::{get_users, post_user};
+use crate::handlers::keycloak::admin::seed;
+use crate::handlers::keycloak::clients::{get_clients, post_client};
+use crate::handlers::keycloak::users::{get_users, post_user};
 use dotenv::{dotenv, var};
 use log::info;
 
@@ -81,7 +81,7 @@ async fn main() -> std::io::Result<()> {
                     )
                     .service(
                         resource("users/reset-password")
-                            .route(put().to(handlers::users::reset_password)),
+                            .route(put().to(handlers::keycloak::users::reset_password)),
                     ),
             )
     })

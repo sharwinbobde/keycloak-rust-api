@@ -7,7 +7,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use validator::{Validate, ValidationError};
 
-use crate::handlers::admin::{get_keycloak_admin};
+use crate::handlers::keycloak::admin::{get_keycloak_admin};
 
 pub async fn get_users(auth: BearerAuth) -> HttpResponse {
     let admin = get_keycloak_admin(auth.token());

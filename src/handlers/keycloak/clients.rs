@@ -5,7 +5,7 @@ use keycloak::types::*;
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
-use crate::handlers::admin::{get_keycloak_admin};
+use crate::handlers::keycloak::admin::{get_keycloak_admin};
 
 pub async fn get_clients(auth: BearerAuth) -> HttpResponse {
     let admin = get_keycloak_admin(auth.token());
