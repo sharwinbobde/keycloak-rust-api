@@ -22,7 +22,7 @@ pub(crate) fn get_keycloak_admin(token: &str) -> KeycloakAdmin {
     KeycloakAdmin::new(&url, admin_token, reqwest::Client::new())
 }
 
-pub async fn seed(auth: BearerAuth) -> HttpResponse {
+pub async fn seed_realm(auth: BearerAuth) -> HttpResponse {
     let admin = get_keycloak_admin(auth.token());
     admin
         .post(RealmRepresentation {

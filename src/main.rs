@@ -9,11 +9,12 @@ use actix_web::{
     App, HttpServer,
 };
 
-use crate::handlers::keycloak::admin::seed;
+use crate::handlers::keycloak::admin::seed_realm;
 use crate::handlers::keycloak::clients::{get_clients, post_client};
 use crate::handlers::keycloak::users::{get_users, post_user};
 use dotenv::{dotenv, var};
 use log::info;
+use crate::handlers::keycloak::groups::{get_groups, post_group};
 
 #[actix_rt::main]
 async fn main() -> std::io::Result<()> {
@@ -26,6 +27,8 @@ async fn main() -> std::io::Result<()> {
 
     let url = std::env::var("KEYCLOAK_ADDR").unwrap();
     info!("KEYCLOAK_ADDR={url}");
+    let realm = var("REALM").unwrap();
+    info!("REALM={realm}");
     let certs = reqwest::get(format!("{url}/realms/master/protocol/openid-connect/certs"))
         .await
         .expect("cannot connect to Keycloak")
@@ -68,7 +71,7 @@ async fn main() -> std::io::Result<()> {
                 scope("/admin")
                     .wrap(keycloak_auth_user)
                     .service(resource("/").route(get().to(handlers::health::get)))
-                    .service(resource("seed").route(patch().to(seed)))
+                    .service(resource("seed").route(patch().to(seed_realm)))
                     .service(
                         resource("clients")
                             .route(get().to(get_clients))
@@ -78,6 +81,11 @@ async fn main() -> std::io::Result<()> {
                         resource("users")
                             .route(get().to(get_users))
                             .route(post().to(post_user)),
+                    )
+                    .service(
+                        resource("groups")
+                            .route(get().to(get_groups))
+                            .route(post().to(post_group)),
                     )
                     .service(
                         resource("users/reset-password")

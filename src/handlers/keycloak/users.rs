@@ -13,7 +13,7 @@ pub async fn get_users(auth: BearerAuth) -> HttpResponse {
     let admin = get_keycloak_admin(auth.token());
     match admin
         .realm_users_get(
-            var("Realm").unwrap().as_str(),
+            var("REALM").unwrap().as_str(),
             None, None, None, None, None, None, None, None, None, None, None, None, None,
             None,
         )
