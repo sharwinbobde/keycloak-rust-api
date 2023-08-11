@@ -87,17 +87,17 @@ pub async fn put_user_attributes(auth: BearerAuth, user: actix_web::web::Json<Us
         Ok(_) => {
             let admin = get_keycloak_admin(auth.token());
 
-            let users = admin
+            let matched = admin
                 .realm_users_get(
                     var("REALM").unwrap().as_str(),
                     Some(false), None, None, None, Some(true), None, None, None, None, None, None, None, None,
                     Some(user.username.clone())).await.unwrap();
 
-            if users.len() != 1 {
-                return HttpResponse::BadRequest().body(format!("Group not found"))
+            if matched.len() != 1 {
+                return HttpResponse::BadRequest().body(format!("User not found"))
             }
 
-            let id = users[0].id.clone().unwrap();
+            let id = matched[0].id.clone().unwrap();
 
             match admin
                 .realm_users_with_id_put(
@@ -112,12 +112,7 @@ pub async fn put_user_attributes(auth: BearerAuth, user: actix_web::web::Json<Us
                 )
                 .await
             {
-                Err(e) => {
-                    error!("Unable to create user: {:?}", e);
-                    HttpResponse::InternalServerError()
-                        .body(format!("Unable to create user: {:?}", e))
-                },
-
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
                 _ => HttpResponse::Ok().finish(),
             }
         }

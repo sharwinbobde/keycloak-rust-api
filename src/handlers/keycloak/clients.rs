@@ -12,7 +12,7 @@ pub async fn get_clients(auth: BearerAuth) -> HttpResponse {
 
     match admin
         .realm_clients_get(var("REALM").unwrap().as_str(),
-                           None, None, None, None, None, Some(false))
+                           None, None, None, None, None, Some(true))
         .await
     {
         Ok(clients) => HttpResponse::Ok().json(clients),
