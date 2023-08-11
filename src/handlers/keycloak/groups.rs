@@ -30,27 +30,22 @@ struct GroupCreatedResponse {
 }
 
 #[derive(Deserialize, Serialize, Validate, Clone)]
-pub struct GoupParams {
+pub struct GroupParams {
     #[validate(length(min = 5, max = 100))]
     group_name: String,
 }
 pub async fn post_group(
     auth: BearerAuth,
-    params: actix_web::web::Json<GoupParams>,
+    params: actix_web::web::Json<GroupParams>,
 ) -> HttpResponse {
     match params.validate() {
         Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
         Ok(_) => {
             let admin = get_keycloak_admin(auth.token());
-            let mut group_attributes = HashMap::<String, Value>::new();
-            group_attributes.insert("some attribute".into(), serde_json::from_str("[\"some value\"]").unwrap());
             match admin.realm_groups_post(
                     var("REALM").unwrap().as_str(),
                     GroupRepresentation {
-                        // id: Some(params.clone().group_id.into()),
                         name: Some(params.clone().group_name.into()),
-                        attributes: Some(group_attributes),
-
                         ..Default::default()
                     },
                 )
@@ -62,6 +57,54 @@ pub async fn post_group(
                     status: "success".into(),
                     message: format!("Group created")
                 })
+            }
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Validate, Clone)]
+pub struct GroupAttributesParams {
+    #[validate(length(min = 5, max = 100))]
+    group_name: String,
+    attributes: HashMap<String, Value>
+}
+pub async fn put_group_attributes(
+    auth: BearerAuth,
+    params: actix_web::web::Json<GroupAttributesParams>,
+) -> HttpResponse {
+    match params.validate() {
+        Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
+        Ok(_) => {
+            let admin = get_keycloak_admin(auth.token());
+            let realm = var("REALM").unwrap();
+
+            let groups = admin.realm_groups_get(
+                realm.as_str(),Some(false),
+                Some(true), None, None, None,
+                Some(params.group_name.clone())).await
+                .unwrap();
+            let matching_groups = groups.iter().filter(|x| (*x).name.clone() == Some(params.group_name.clone())).collect::<Vec<&GroupRepresentation>>();
+
+            if matching_groups.len() != 1 {
+                return HttpResponse::BadRequest().body(format!("Group not found"))
+            }
+
+            let group_id = matching_groups[0].id.clone().unwrap();
+
+            match admin.realm_groups_with_id_put(
+                realm.as_str(),
+                group_id.as_str(),
+                GroupRepresentation {
+                    name: Some(params.clone().group_name.into()),
+                    attributes: Some(params.attributes.clone()),
+                    ..Default::default()
+                },
+            )
+                .await {
+                Err(e) => {
+                    HttpResponse::InternalServerError().body(format!("Error {:?}", e))
+                }
+                Ok(_) => HttpResponse::Ok().finish()
             }
         }
     }
