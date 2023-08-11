@@ -76,23 +76,21 @@ pub async fn put_group_attributes(
         Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
         Ok(_) => {
             let admin = get_keycloak_admin(auth.token());
-            let realm = var("REALM").unwrap();
 
             let groups = admin.realm_groups_get(
-                realm.as_str(),Some(false),
+                var("REALM").unwrap().as_str(),Some(false),
                 Some(true), None, None, None,
                 Some(params.group_name.clone())).await
                 .unwrap();
-            let matching_groups = groups.iter().filter(|x| (*x).name.clone() == Some(params.group_name.clone())).collect::<Vec<&GroupRepresentation>>();
 
-            if matching_groups.len() != 1 {
+            if groups.len() != 1 {
                 return HttpResponse::BadRequest().body(format!("Group not found"))
             }
 
-            let group_id = matching_groups[0].id.clone().unwrap();
+            let group_id = groups[0].id.clone().unwrap();
 
             match admin.realm_groups_with_id_put(
-                realm.as_str(),
+                var("REALM").unwrap().as_str(),
                 group_id.as_str(),
                 GroupRepresentation {
                     name: Some(params.clone().group_name.into()),

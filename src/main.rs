@@ -8,11 +8,10 @@ use actix_web::{
     web::{get, patch, post, put, resource, scope},
     App, HttpServer,
 };
-use actix_web::web::{route, service};
 
 use crate::handlers::keycloak::admin::seed_realm;
 use crate::handlers::keycloak::clients::{get_clients, post_client};
-use crate::handlers::keycloak::users::{get_users, post_user};
+use crate::handlers::keycloak::users::{get_users, post_user, put_user_attributes, reset_password};
 use dotenv::{dotenv, var};
 use log::info;
 use crate::handlers::keycloak::groups::{get_groups, post_group, put_group_attributes};
@@ -85,7 +84,11 @@ async fn main() -> std::io::Result<()> {
                     )
                     .service(
                         resource("users/reset-password")
-                            .route(put().to(handlers::keycloak::users::reset_password)),
+                            .route(put().to(reset_password)),
+                    )
+                    .service(
+                        resource("users/attributes")
+                            .route(put().to(put_user_attributes)),
                     )
                     .service(
                         resource("groups")

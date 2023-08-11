@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use actix_web::HttpResponse;
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use dotenv::var;
@@ -5,6 +6,7 @@ use keycloak::types::*;
 use log::error;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use validator::{Validate, ValidationError};
 
 use crate::handlers::keycloak::admin::{get_keycloak_admin};
@@ -14,7 +16,7 @@ pub async fn get_users(auth: BearerAuth) -> HttpResponse {
     match admin
         .realm_users_get(
             var("REALM").unwrap().as_str(),
-            None, None, None, None, None, None, None, None, None, None, None, None, None,
+            Some(false), None, None, None, Some(true), None, None, None, None, None, None, None, None,
             None,
         )
         .await
@@ -42,6 +44,7 @@ fn validate_username(username: &str) -> Result<(), ValidationError> {
         false => Err(ValidationError::new("username does not match regex")),
     }
 }
+
 pub async fn post_user(auth: BearerAuth, user: actix_web::web::Json<User>) -> HttpResponse {
     match user.validate() {
         Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
@@ -55,7 +58,6 @@ pub async fn post_user(auth: BearerAuth, user: actix_web::web::Json<User>) -> Ht
                         enabled: Some(true),
                         username: Some(user.username.clone()),
                         email: Some(user.email.clone()),
-
                         ..Default::default()
                     },
                 )
@@ -72,6 +74,56 @@ pub async fn post_user(auth: BearerAuth, user: actix_web::web::Json<User>) -> Ht
         }
     }
 }
+#[derive(Debug, Serialize, Deserialize, Validate)]
+pub struct UserAttributes {
+    #[validate(length(min = 8, max = 30), custom = "validate_username")]
+    username: String,
+    attributes: HashMap<String, Value>
+}
+pub async fn put_user_attributes(auth: BearerAuth, user: actix_web::web::Json<UserAttributes>) -> HttpResponse {
+    match user.validate() {
+        Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
+
+        Ok(_) => {
+            let admin = get_keycloak_admin(auth.token());
+
+            let users = admin
+                .realm_users_get(
+                    var("REALM").unwrap().as_str(),
+                    Some(false), None, None, None, Some(true), None, None, None, None, None, None, None, None,
+                    Some(user.username.clone())).await.unwrap();
+
+            if users.len() != 1 {
+                return HttpResponse::BadRequest().body(format!("Group not found"))
+            }
+
+            let id = users[0].id.clone().unwrap();
+
+            match admin
+                .realm_users_with_id_put(
+                    var("REALM").unwrap().as_str(),
+                    id.as_str(),
+                    UserRepresentation {
+                        enabled: Some(true),
+                        username: Some(user.username.clone()),
+                        attributes: Some(user.attributes.clone()),
+                        ..Default::default()
+                    },
+                )
+                .await
+            {
+                Err(e) => {
+                    error!("Unable to create user: {:?}", e);
+                    HttpResponse::InternalServerError()
+                        .body(format!("Unable to create user: {:?}", e))
+                },
+
+                _ => HttpResponse::Ok().finish(),
+            }
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Validate, Clone)]
 pub struct UserPassword {
     #[validate(length(min = 8, max = 30), custom = "validate_username")]
