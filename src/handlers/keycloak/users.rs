@@ -3,7 +3,7 @@ use actix_web::HttpResponse;
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use dotenv::var;
 use keycloak::types::*;
-use log::error;
+use log::{error};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -36,7 +36,7 @@ pub struct User {
     #[validate(email)]
     email: String,
 }
-fn validate_username(username: &str) -> Result<(), ValidationError> {
+pub(crate) fn validate_username(username: &str) -> Result<(), ValidationError> {
     const USERNAME_REGEX: &str = "^[a-zA-Z0-9_-]{10,200}$";
     let re = Regex::new(USERNAME_REGEX.clone()).unwrap();
     match re.is_match(username) {
@@ -80,8 +80,8 @@ pub struct UserAttributes {
     username: String,
     attributes: HashMap<String, Value>
 }
-pub async fn put_user_attributes(auth: BearerAuth, user: actix_web::web::Json<UserAttributes>) -> HttpResponse {
-    match user.validate() {
+pub async fn put_user_attributes(auth: BearerAuth, params: actix_web::web::Json<UserAttributes>) -> HttpResponse {
+    match params.validate() {
         Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
 
         Ok(_) => {
@@ -91,24 +91,22 @@ pub async fn put_user_attributes(auth: BearerAuth, user: actix_web::web::Json<Us
                 .realm_users_get(
                     var("REALM").unwrap().as_str(),
                     Some(false), None, None, None, Some(true), None, None, None, None, None, None, None, None,
-                    Some(user.username.clone())).await.unwrap();
+                    Some(params.username.clone())).await.unwrap();
 
             if matched.len() != 1 {
                 return HttpResponse::BadRequest().body(format!("User not found"))
             }
 
             let id = matched[0].id.clone().unwrap();
+            let mut new_entity = matched[0].clone();
+            new_entity.attributes = Some(params.attributes.clone());
+
 
             match admin
                 .realm_users_with_id_put(
                     var("REALM").unwrap().as_str(),
                     id.as_str(),
-                    UserRepresentation {
-                        enabled: Some(true),
-                        username: Some(user.username.clone()),
-                        attributes: Some(user.attributes.clone()),
-                        ..Default::default()
-                    },
+                    new_entity
                 )
                 .await
             {
@@ -191,6 +189,57 @@ pub async fn reset_password(
                     .body(format!("Unable to reset password: {:?}", e)),
 
                 _ => HttpResponse::Ok().finish(),
+            }
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Validate, Clone)]
+pub struct UserGroup {
+    #[validate(length(min = 5, max = 100))]
+    group_name: String,
+    #[validate(length(min = 8, max = 30), custom = "validate_username")]
+    username: String,
+}
+pub async fn put_user_assign_group(
+    auth: BearerAuth,
+    params: actix_web::web::Json<UserGroup>,
+) -> HttpResponse {
+    match params.validate() {
+        Err(e) => HttpResponse::BadRequest().body(format!("Validation Error: {:?}", e)),
+        Ok(_) => {
+            let admin = get_keycloak_admin(auth.token());
+
+
+
+            let matched_group = admin.realm_groups_get(
+                var("REALM").unwrap().as_str(),Some(false),
+                Some(true), None, None, None,
+                Some(params.group_name.clone())).await
+                .unwrap();
+
+            if matched_group.len() != 1 {
+                return HttpResponse::BadRequest().body(format!("Group not found"))
+            }
+
+            let matched_user = admin.realm_users_get(
+                    var("REALM").unwrap().as_str(),
+                    Some(false), None, None, None,
+                    Some(true), None, None, None, None,
+                    None, None, None, None,
+                    Some(params.username.clone())).await.unwrap();
+
+            if matched_user.len() != 1 {
+                return HttpResponse::BadRequest().body(format!("User not found"))
+            }
+
+            match admin.realm_users_with_id_groups_with_group_id_put(
+                var("REALM").unwrap().as_str(),
+                matched_user[0].id.clone().unwrap().as_str(),
+                matched_group[0].id.clone().unwrap().as_str()
+            ).await{
+                Err(e) => HttpResponse::InternalServerError().body(format!("{:?}", e)),
+                Ok(_) => HttpResponse::Ok().finish()
             }
         }
     }

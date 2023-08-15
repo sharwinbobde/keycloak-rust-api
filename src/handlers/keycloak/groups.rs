@@ -88,20 +88,18 @@ pub async fn put_group_attributes(
             }
 
             let id = matched[0].id.clone().unwrap();
+            let mut new_entity = matched[0].clone();
+            new_entity.attributes = Some(params.attributes.clone());
 
             match admin.realm_groups_with_id_put(
                 var("REALM").unwrap().as_str(),
                 id.as_str(),
-                GroupRepresentation {
-                    name: Some(params.clone().group_name.into()),
-                    attributes: Some(params.attributes.clone()),
-                    ..Default::default()
-                },
+                new_entity,
             )
                 .await {
-                Err(e) => {
-                    HttpResponse::InternalServerError().body(format!("Error {:?}", e))
-                }
+                Err(e) => HttpResponse::InternalServerError()
+                    .body(format!("Error {:?}", e)),
+
                 Ok(_) => HttpResponse::Ok().finish()
             }
         }
