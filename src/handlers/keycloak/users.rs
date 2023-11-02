@@ -38,7 +38,7 @@ pub struct User {
 }
 pub(crate) fn validate_username(username: &str) -> Result<(), ValidationError> {
     const USERNAME_REGEX: &str = "^[a-zA-Z0-9_-]{10,200}$";
-    let re = Regex::new(USERNAME_REGEX.clone()).unwrap();
+    let re = Regex::new(USERNAME_REGEX).unwrap();
     match re.is_match(username) {
         true => Ok(()),
         false => Err(ValidationError::new("username does not match regex")),
